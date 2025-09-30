@@ -5,7 +5,6 @@ import { EyeIcon, EyeSlashIcon, SparklesIcon } from '@heroicons/react/24/outline
 import { apiService } from '../services/api';
 import { useApp } from '../contexts/AppContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { detectUserModule } from '../utils/moduleDetection';
 
 export const Login: React.FC = () => {
   const { dispatch } = useApp();
@@ -46,8 +45,14 @@ export const Login: React.FC = () => {
       if (response.success) {
         dispatch({ type: 'SET_USER', payload: response.user });
         showSuccess('Login realizado com sucesso!', `Bem-vindo, ${response.user.name}`);
-        const targetModule = detectUserModule(response.user);
-        navigate(targetModule);
+
+        if (response.user.role === 'admin') {
+          navigate('/admin');
+        } else if (response.user.role === 'barbearia') {
+          navigate('/barbearia');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setError(response.error || 'Credenciais inválidas');
         showError('Erro no login', response.error || 'Credenciais inválidas');

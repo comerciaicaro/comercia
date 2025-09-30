@@ -15,7 +15,6 @@ const Settings = lazy(() => import('./pages/Settings').then(module => ({ default
 const Configuracoes = lazy(() => import('./pages/Configuracoes').then(module => ({ default: module.Configuracoes })));
 const Barbearia = lazy(() => import('./pages/Barbearia').then(module => ({ default: module.Barbearia })));
 const Admin = lazy(() => import('./pages/Admin').then(module => ({ default: module.Admin })));
-const Teste = lazy(() => import('./pages/Teste').then(module => ({ default: module.Teste })));
 
 const LoadingSpinner: React.FC = () => (
   <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -63,7 +62,6 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/teste" element={<Teste />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           
           <Route

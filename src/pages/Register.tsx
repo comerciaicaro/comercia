@@ -14,7 +14,6 @@ import {
 import { apiService } from '../services/api';
 import { useApp } from '../contexts/AppContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { detectUserModule } from '../utils/moduleDetection';
 
 interface FormData {
   name: string;
@@ -125,10 +124,14 @@ export const Register: React.FC = () => {
       if (response.success) {
         dispatch({ type: 'SET_USER', payload: response.user });
         showSuccess('Conta criada com sucesso!', `Bem-vindo, ${response.user.name}!`);
-        
-        // Detectar módulo automaticamente
-        const targetModule = detectUserModule(response.user);
-        navigate(targetModule);
+
+        if (response.user.role === 'admin') {
+          navigate('/admin');
+        } else if (response.user.role === 'barbearia') {
+          navigate('/barbearia');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setErrors({ general: response.error || 'Erro ao criar conta' });
         showError('Erro no cadastro', response.error || 'Erro ao criar conta');
