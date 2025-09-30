@@ -1,0 +1,595 @@
+# 🚀 GUIA COMPLETO DE INSTALAÇÃO E DEPLOY - SISTEMA DINÂMICA SAAS
+
+## 📋 CONFIGURAÇÃO LOCAL (DESENVOLVIMENTO)
+
+### 1. PRÉ-REQUISITOS
+- **Node.js 18+:** https://nodejs.org/
+- **VSCode:** https://code.visualstudio.com/
+- **Conta Supabase:** https://supabase.com/ (gratuita)
+
+### 2. CONFIGURAÇÃO NO VSCODE
+
+#### Passo 1: Abrir Projeto
+```bash
+# Abrir VSCode
+code .
+
+# Abrir terminal integrado (Ctrl + `)
+```
+
+#### Passo 2: Instalar Dependências
+```bash
+# No terminal do VSCode:
+npm install
+```
+
+#### Passo 3: Configurar Supabase
+1. **Criar projeto no Supabase:**
+   - Acesse: https://supabase.com/dashboard
+   - Clique "New Project"
+   - Nome: "dinamica-saas"
+   - Senha: (anote a senha)
+   - Região: South America (São Paulo)
+
+2. **Obter credenciais:**
+   - Vá em Settings > API
+   - Copie: URL, anon key, service_role key
+
+3. **Configurar .env:**
+```bash
+# Editar server/.env
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_ANON_KEY=sua-anon-key-aqui
+SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key-aqui
+```
+
+#### Passo 4: Configurar Banco de Dados
+```bash
+# No Supabase Dashboard > SQL Editor
+# Cole e execute o conteúdo do arquivo: server/setup-supabase.sql
+```
+
+#### Passo 5: Executar Sistema
+```bash
+# Terminal 1 - Backend
+npm run server:dev
+
+# Terminal 2 - Frontend (Ctrl + Shift + `)
+npm run dev
+```
+
+### 3. ACESSAR SISTEMA
+- **Frontend:** http://localhost:5173
+- **Credenciais:**
+  - Admin: admin@dinamica.com / admin123
+  - Barbearia: barbearia@dinamica.com / barbearia123
+
+## 🌐 DEPLOY NO IONOS (PRODUÇÃO)
+
+### 1. PREPARAÇÃO DO IONOS
+
+#### Requisitos do Servidor:
+- **VPS Linux** (Ubuntu 20.04+ recomendado)
+- **2GB RAM mínimo** (4GB recomendado)
+- **20GB SSD** (50GB recomendado)
+- **Node.js 18+**
+- **PM2** para gerenciamento de processos
+- **Nginx** como proxy reverso
+
+#### Configuração Inicial:
+```bash
+# Conectar via SSH
+ssh root@seu-servidor-ionos.com
+
+# Atualizar sistema
+apt update && apt upgrade -y
+
+# Instalar Node.js 18
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+apt-get install -y nodejs
+
+# Instalar PM2
+npm install -g pm2
+
+# Instalar Nginx
+apt install nginx -y
+
+# Instalar Git
+apt install git -y
+```
+
+### 2. CONFIGURAÇÃO DO BANCO DE DADOS
+
+#### Opção 1: Supabase (Recomendado)
+```bash
+# Manter projeto Supabase existente
+# Atualizar .env de produção com URLs do Supabase
+```
+
+#### Opção 2: PostgreSQL Local no IONOS
+```bash
+# Instalar PostgreSQL
+apt install postgresql postgresql-contrib -y
+
+# Configurar usuário
+sudo -u postgres createuser --interactive
+# Nome: dinamica
+# Superuser: y
+
+# Criar banco
+sudo -u postgres createdb dinamica_saas
+
+# Configurar senha
+sudo -u postgres psql
+\password dinamica
+\q
+
+# Executar schema
+psql -U dinamica -d dinamica_saas -f server/setup-supabase.sql
+```
+
+### 3. DEPLOY DA APLICAÇÃO
+
+#### Upload do Código:
+```bash
+# No servidor IONOS
+cd /var/www
+git clone https://github.com/seu-usuario/dinamica-saas.git
+cd dinamica-saas
+
+# Instalar dependências
+npm install --production
+
+# Build do frontend
+npm run build
+```
+
+#### Configuração de Produção:
+```bash
+# Criar .env de produção
+nano server/.env
+```
+
+```env
+# Configuração de Produção
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_ANON_KEY=sua-anon-key
+SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key
+
+JWT_SECRET=sua-chave-jwt-super-segura-aqui
+PORT=3001
+NODE_ENV=production
+
+# APIs de IA (configurar via admin)
+OPENAI_API_KEY=
+GOOGLE_GEMINI_API_KEY=
+HUGGINGFACE_API_KEY=
+
+# WhatsApp (configurar via usuário)
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_NUMBER_ID=
+
+CORS_ORIGIN=https://seu-dominio.com
+```
+
+#### Configurar PM2:
+```bash
+# Criar ecosystem.config.js
+nano ecosystem.config.js
+```
+
+```javascript
+module.exports = {
+  apps: [{
+    name: 'dinamica-saas',
+    script: 'server/app.js',
+    instances: 'max',
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3001
+    },
+    error_file: './logs/err.log',
+    out_file: './logs/out.log',
+    log_file: './logs/combined.log',
+    time: true
+  }]
+};
+```
+
+```bash
+# Iniciar com PM2
+mkdir logs
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
+```
+
+### 4. CONFIGURAÇÃO DO NGINX
+
+```bash
+# Criar configuração do site
+nano /etc/nginx/sites-available/dinamica-saas
+```
+
+```nginx
+server {
+    listen 80;
+    server_name seu-dominio.com www.seu-dominio.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name seu-dominio.com www.seu-dominio.com;
+    
+    # SSL Configuration (Let's Encrypt)
+    ssl_certificate /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
+    
+    # Frontend (React build)
+    location / {
+        root /var/www/dinamica-saas/dist;
+        try_files $uri $uri/ /index.html;
+        
+        # Cache static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+    
+    # Backend API
+    location /api {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # Timeout settings
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+    
+    # WebSocket
+    location /socket.io {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+}
+```
+
+```bash
+# Ativar site
+ln -s /etc/nginx/sites-available/dinamica-saas /etc/nginx/sites-enabled/
+nginx -t
+systemctl reload nginx
+```
+
+### 5. CONFIGURAR SSL (Let's Encrypt)
+
+```bash
+# Instalar Certbot
+apt install certbot python3-certbot-nginx -y
+
+# Obter certificado SSL
+certbot --nginx -d seu-dominio.com -d www.seu-dominio.com
+
+# Renovação automática
+crontab -e
+# Adicionar linha:
+0 12 * * * /usr/bin/certbot renew --quiet
+```
+
+### 6. CONFIGURAÇÃO DE DOMÍNIO
+
+#### No Painel IONOS:
+1. **DNS Settings:**
+   - Tipo A: @ → IP do servidor
+   - Tipo A: www → IP do servidor
+   - Tipo CNAME: api → seu-dominio.com
+
+2. **Firewall:**
+   - Porta 80 (HTTP)
+   - Porta 443 (HTTPS)
+   - Porta 22 (SSH)
+
+## 🔧 CONFIGURAÇÕES ESPECÍFICAS
+
+### 1. APIs de IA (Configurar via Admin)
+
+#### Google Gemini:
+1. Acesse: https://makersuite.google.com/app/apikey
+2. Crie uma API Key
+3. No sistema: Login admin → APIs Globais → Cole a chave
+
+#### OpenAI:
+1. Acesse: https://platform.openai.com/api-keys
+2. Crie uma API Key
+3. Configure no painel admin
+
+#### Hugging Face:
+1. Acesse: https://huggingface.co/settings/tokens
+2. Crie um token
+3. Configure no painel admin
+
+### 2. WhatsApp Business API
+
+#### Configuração Meta Business:
+1. **Meta Business Account:** https://business.facebook.com/
+2. **WhatsApp Business API:** https://developers.facebook.com/docs/whatsapp
+3. **Obter credenciais:**
+   - Access Token
+   - Phone Number ID
+   - Webhook Verify Token
+
+#### No Sistema:
+1. Login como usuário
+2. Vá em "APIs" → WhatsApp
+3. Clique "+" e configure credenciais
+4. Teste a conexão
+
+### 3. Configuração de Email
+
+#### SMTP (Gmail exemplo):
+```
+Servidor: smtp.gmail.com
+Porta: 587
+Usuário: seu@gmail.com
+Senha: senha-de-app (não a senha normal)
+```
+
+## 🔍 MONITORAMENTO E MANUTENÇÃO
+
+### 1. Logs do Sistema
+```bash
+# Logs PM2
+pm2 logs dinamica-saas
+
+# Logs Nginx
+tail -f /var/log/nginx/access.log
+tail -f /var/log/nginx/error.log
+
+# Logs do sistema
+journalctl -u nginx -f
+```
+
+### 2. Backup Automático
+```bash
+# Criar script de backup
+nano /root/backup-dinamica.sh
+```
+
+```bash
+#!/bin/bash
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/backups"
+
+# Criar diretório se não existir
+mkdir -p $BACKUP_DIR
+
+# Backup do código
+tar -czf $BACKUP_DIR/dinamica_code_$DATE.tar.gz /var/www/dinamica-saas
+
+# Backup Supabase (via API)
+# Nota: Supabase faz backup automático, mas você pode exportar dados específicos
+
+# Limpar backups antigos (manter 7 dias)
+find $BACKUP_DIR -name "*.tar.gz" -mtime +7 -delete
+
+echo "Backup concluído: $DATE"
+```
+
+```bash
+# Tornar executável
+chmod +x /root/backup-dinamica.sh
+
+# Agendar backup diário
+crontab -e
+# Adicionar:
+0 2 * * * /root/backup-dinamica.sh
+```
+
+### 3. Monitoramento de Performance
+```bash
+# Instalar htop
+apt install htop -y
+
+# Monitorar recursos
+htop
+
+# Status PM2
+pm2 status
+pm2 monit
+```
+
+## 🛡️ SEGURANÇA EM PRODUÇÃO
+
+### 1. Firewall
+```bash
+# Configurar UFW
+ufw enable
+ufw allow ssh
+ufw allow 'Nginx Full'
+ufw status
+```
+
+### 2. Atualizações Automáticas
+```bash
+# Configurar atualizações de segurança
+apt install unattended-upgrades -y
+dpkg-reconfigure -plow unattended-upgrades
+```
+
+### 3. Backup de Segurança
+```bash
+# Backup das chaves SSH
+cp -r ~/.ssh /backups/ssh_backup_$(date +%Y%m%d)
+
+# Backup da configuração Nginx
+cp -r /etc/nginx /backups/nginx_backup_$(date +%Y%m%d)
+```
+
+## 🔧 TROUBLESHOOTING
+
+### Problemas Comuns:
+
+#### 1. Erro de Conexão Supabase
+```bash
+# Verificar .env
+cat server/.env | grep SUPABASE
+
+# Testar conexão
+node -e "
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient('URL', 'KEY');
+supabase.from('users').select('count').then(console.log);
+"
+```
+
+#### 2. PM2 não inicia
+```bash
+# Verificar logs
+pm2 logs
+
+# Reiniciar
+pm2 restart dinamica-saas
+
+# Verificar porta
+netstat -tulpn | grep 3001
+```
+
+#### 3. Nginx erro 502
+```bash
+# Verificar se backend está rodando
+pm2 status
+
+# Verificar configuração Nginx
+nginx -t
+
+# Reiniciar Nginx
+systemctl restart nginx
+```
+
+#### 4. SSL não funciona
+```bash
+# Renovar certificado
+certbot renew
+
+# Verificar certificado
+certbot certificates
+
+# Reconfigurar se necessário
+certbot --nginx -d seu-dominio.com
+```
+
+## 📊 MÉTRICAS DE PERFORMANCE
+
+### Configuração de Monitoramento:
+```bash
+# Instalar ferramentas de monitoramento
+npm install -g clinic
+
+# Monitorar performance
+clinic doctor -- node server/app.js
+```
+
+### Otimizações Recomendadas:
+1. **Redis** para cache (opcional)
+2. **CDN** para assets estáticos
+3. **Load Balancer** para múltiplas instâncias
+4. **Database Connection Pooling**
+
+## 🎯 CHECKLIST DE DEPLOY
+
+### ✅ Pré-Deploy:
+- [ ] Supabase configurado e testado
+- [ ] Variáveis de ambiente configuradas
+- [ ] Build do frontend funcionando
+- [ ] Testes locais passando
+
+### ✅ Deploy:
+- [ ] Código enviado para servidor
+- [ ] Dependências instaladas
+- [ ] PM2 configurado e rodando
+- [ ] Nginx configurado
+- [ ] SSL configurado
+- [ ] DNS apontando para servidor
+
+### ✅ Pós-Deploy:
+- [ ] Sistema acessível via domínio
+- [ ] APIs funcionando
+- [ ] Chat IA operacional
+- [ ] WhatsApp conectado
+- [ ] Backup configurado
+- [ ] Monitoramento ativo
+
+## 🚀 COMANDOS ÚTEIS
+
+### Desenvolvimento:
+```bash
+npm run dev          # Frontend
+npm run server:dev   # Backend
+npm run build        # Build produção
+```
+
+### Produção:
+```bash
+pm2 start ecosystem.config.js  # Iniciar
+pm2 restart dinamica-saas      # Reiniciar
+pm2 stop dinamica-saas         # Parar
+pm2 logs dinamica-saas         # Ver logs
+```
+
+### Manutenção:
+```bash
+# Atualizar código
+git pull origin main
+npm install
+npm run build
+pm2 restart dinamica-saas
+
+# Backup manual
+/root/backup-dinamica.sh
+
+# Verificar status
+pm2 status
+systemctl status nginx
+```
+
+## 📞 SUPORTE E CONTATO
+
+### Em caso de problemas:
+1. **Verificar logs:** `pm2 logs dinamica-saas`
+2. **Testar APIs:** Acessar `/api/health`
+3. **Verificar Supabase:** Dashboard do projeto
+4. **Reiniciar serviços:** PM2 e Nginx
+
+### Recursos Úteis:
+- **Supabase Docs:** https://supabase.com/docs
+- **IONOS Help:** https://www.ionos.com/help/
+- **PM2 Docs:** https://pm2.keymetrics.io/docs/
+
+**SISTEMA PRONTO PARA PRODUÇÃO! 🎉**
+
+Tempo estimado de deploy: 30-60 minutos
+Custo mensal estimado: €10-30 (VPS IONOS + Supabase gratuito)
